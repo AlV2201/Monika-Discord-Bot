@@ -15,7 +15,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-EXTENSIONS = ("cogs.personality", "cogs.music")
+EXTENSIONS = ("cogs.personality", "cogs.music", "cogs.help")
 
 OPTIONAL_VARS = (
     "OLLAMA_HOST",

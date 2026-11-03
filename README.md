@@ -14,6 +14,9 @@ A locally hosted Discord bot with an **Ollama-powered personality** and a **full
 - Streams YouTube links, playlists, search queries, and Spotify links (Spotify resolves via the free Web API, then plays from YouTube)
 - Per-guild queue with loop modes (Off / Single / Queue), shuffle, and history
 
+**General** (`cogs/help.py`)
+- `/help` lists every command & feature, grouped by category, with a link to the repository
+
 | Command | Description |
 |---|---|
 | `/play <query>` | YouTube/Spotify URL, `ytsearch:` query, or plain text |
@@ -25,6 +28,7 @@ A locally hosted Discord bot with an **Ollama-powered personality** and a **full
 | `/shuffle` | Shuffle the queue |
 | `/loop [mode]` | Off → Single → Queue (omitting `mode` cycles) |
 | `/forget` | Clear the personality's memory of this conversation |
+| `/help` | List all commands & features + link to the repository |
 
 ## Requirements
 
@@ -96,6 +100,7 @@ Personal-Discord-Bot/
 │   ├── .env.example        # configuration template
 │   ├── cogs/
 │   │   ├── personality.py  # Ollama chat listener + /forget
+│   │   ├── help.py         # /help: command index + GitHub link button
 │   │   └── music.py        # voice connection, queue, 11 slash commands
 │   └── utils/
 │       ├── audio_source.py # yt-dlp extraction + FFmpeg streaming
