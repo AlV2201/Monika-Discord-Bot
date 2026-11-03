@@ -24,7 +24,12 @@ import yt_dlp
 log = logging.getLogger(__name__)
 
 # Stability options for streaming remote media.
-FFMPEG_BEFORE_OPTIONS = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+# The User-Agent header is critical; YouTube frequently returns 403 Forbidden
+# to FFmpeg if it's missing or generic.
+FFMPEG_BEFORE_OPTIONS = (
+    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
+    '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36\r\n"'
+)
 FFMPEG_OPTIONS = "-vn"
 
 YTDL_OPTIONS: dict[str, Any] = {
@@ -35,7 +40,6 @@ YTDL_OPTIONS: dict[str, Any] = {
     "ignoreerrors": True,     # one broken entry must not kill a whole playlist
     "quiet": True,
     "no_warnings": True,
-    "source_address": "0.0.0.0",
 }
 
 
