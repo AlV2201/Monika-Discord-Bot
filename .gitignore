@@ -426,3 +426,6 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# yt-dlp YouTube cookies (contain your Google session — never commit)
+*cookies*.txt

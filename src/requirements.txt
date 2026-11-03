@@ -1,0 +1,20 @@
+# [voice] extra = PyNaCl + davey (Discord's DAVE/E2EE voice protocol).
+discord.py[voice]
+# PINNED: davey 0.2.0 (2026-11-02) breaking change — process_commit()/
+# process_welcome() no longer install MLS keys unless followed by
+# prepare_transition()/execute_transition(), which discord.py 2.7.1 (March)
+# never calls. With 0.2.0 the handshake completes but keys are never set, so
+# the server can't decrypt the bot's frames: bot "plays" (green glow, valid
+# RTP on the wire) but nobody hears it. 0.1.7 keeps the key-updating
+# semantics discord.py 2.7.1 expects. Revisit when discord.py ships a release
+# that calls the 0.2.x transition API.
+davey==0.1.7
+# [default] pulls in yt-dlp-ejs (JS challenge solver scripts) — required
+# for YouTube format extraction; see https://github.com/yt-dlp/yt-dlp/wiki/EJS
+# NOTE: a JS runtime is also required at runtime (Deno recommended, e.g.
+# `curl -fsSL https://deno.land/install.sh | sh` — must be on PATH when the bot runs).
+yt-dlp[default]
+spotipy
+ollama
+python-dotenv
+PyNaCl
