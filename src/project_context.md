@@ -15,8 +15,10 @@ discord-bot/
 ├── .env                  # Bot credentials & configuration
 ├── requirements.txt      # Dependencies
 ├── main.py               # Bot entry point and command registration
+├── persona.py            # Built-in Monika system prompt (default persona)
 ├── cogs/
 │   ├── personality.py    # Text listener & Ollama LLM interaction
+│   ├── help.py           # /help command index + repository link
 │   └── music.py          # Voice connection & playback commands
 └── utils/
     ├── audio_source.py   # yt-dlp & FFmpeg audio stream handler
@@ -32,14 +34,14 @@ discord-bot/
 * `OLLAMA_MODEL`: Target model name (e.g., `llama3.2`).
 * `SPOTIPY_CLIENT_ID`: Spotify App Client ID (for Spotify API resolution).
 * `SPOTIPY_CLIENT_SECRET`: Spotify App Client Secret.
-* `BOT_CHARACTER_PROMPT`: Detailed system prompt defining the bot's background, persona, tone, and response constraints.
+* `BOT_CHARACTER_PROMPT`: Optional system prompt that *replaces* the built-in Monika persona (`persona.py`) if set; background, tone, and response constraints.
 
 ### 2. Personality Cog (`cogs/personality.py`)
 
 * Intercepts messages mentioning the bot or sent in specific chat channels.
 * Uses `ollama` (via `asyncio.to_thread` or `aiohttp`) to keep Discord's event loop non-blocking.
 * Maintains conversation memory (up to N recent messages) per channel/user to maintain conversational context.
-* System prompt prepends every chat request to enforce character integrity.
+* System prompt prepends every chat request to enforce character integrity — by default the built-in Monika persona from `persona.py`.
 
 ### 3. Audio Source Engine (`utils/audio_source.py`)
 
