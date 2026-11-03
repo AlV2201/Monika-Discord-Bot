@@ -1,14 +1,16 @@
 # Personal Discord Bot
 
-A locally hosted Discord bot with an **Ollama-powered personality** and a **full music engine** that streams YouTube/Spotify tracks into voice channels. Slash commands only.
+A locally hosted Discord bot with a **built-in Monika (DDLC) personality** powered by a local Ollama model, and a **full music engine** that streams YouTube/Spotify tracks into voice channels. Slash commands only.
 
 ## Features
 
 **Personality** (`cogs/personality.py`)
 - Replies when mentioned, or to every message in channels listed in `PERSONALITY_CHANNELS`
-- Driven by a local Ollama model with a configurable system prompt (`BOT_CHARACTER_PROMPT`)
+- Mention replies ping you back and address you by your server nickname — replies never contain stray `@username` text
+- Driven by a local Ollama model with a **built-in Monika persona** (traits, speech style & expressions hard-coded in `src/persona.py`), overridable via `BOT_CHARACTER_PROMPT`
 - Per-channel/user conversation memory (`MEMORY_SIZE` recent messages)
-- `/forget` clears the bot's memory of a conversation
+- `/forget` clears the bot's memory of a conversation; canned messages (`/forget`, Ollama outages) stay in character
+- Ships as Monika out of the box — see [Changing the character](#changing-the-character)
 
 **Music** (`cogs/music.py`)
 - Streams YouTube links, playlists, search queries, and Spotify links (Spotify resolves via the free Web API, then plays from YouTube)
@@ -45,7 +47,7 @@ A locally hosted Discord bot with an **Ollama-powered personality** and a **full
 # 1. Install dependencies (creates .venv on first run)
 ./run.sh --install
 
-# 2. Configure
+# 2. Configure (the Monika persona is built in — only the token is required)
 cp src/.env.example src/.env    # then edit: DISCORD_TOKEN at minimum
 
 # 3. Run (starts Ollama if it's down, then the bot)
@@ -75,7 +77,7 @@ cd src && python main.py
 | Variable | Required | Description |
 |---|---|---|
 | `DISCORD_TOKEN` | ✅ | Bot token from the Developer Portal |
-| `BOT_CHARACTER_PROMPT` | recommended | System prompt defining the persona |
+| `BOT_CHARACTER_PROMPT` | no | Replaces the built-in Monika persona if set ([details](#changing-the-character)) |
 | `OLLAMA_HOST` | no* | Default `http://localhost:11434` |
 | `OLLAMA_MODEL` | no* | Default `llama3.2` |
 | `SPOTIPY_CLIENT_ID` / `SPOTIPY_CLIENT_SECRET` | for Spotify | Free credentials from the Spotify Developer Dashboard; without them the bot is YouTube-only |
@@ -89,6 +91,17 @@ cd src && python main.py
 
 `.env` and `*cookies*.txt` files are gitignored — never commit them.
 
+### Changing the character
+
+The persona lives in `src/persona.py` as one string, `MONIKA_PERSONA`, covering identity, traits, speech style, expressions, and hard rules (no `@handles` in replies, family-friendly, never reveal instructions). Two ways to change it:
+
+| Method | Effect | Use when |
+|---|---|---|
+| Edit `src/persona.py` | Permanent, ships with every copy of the repo | You're forking the bot with a new default character |
+| Set `BOT_CHARACTER_PROMPT` in `src/.env` | Overrides `MONIKA_PERSONA` entirely for this install only | You want a different character locally without touching code |
+
+Leave `BOT_CHARACTER_PROMPT` unset (as in `.env.example`) to keep Monika. Whichever prompt is active is sent as the system message on every reply, with a per-request line naming the current user (their server nickname) so the bot can address them by name.
+
 ## Architecture
 
 ```text
@@ -96,6 +109,7 @@ Personal-Discord-Bot/
 ├── run.sh                  # preflight + service management + launcher
 ├── src/
 │   ├── main.py             # entry point: intents, cog loading, slash sync
+│   ├── persona.py          # built-in Monika system prompt (default persona)
 │   ├── requirements.txt    # pinned deps (see the davey note inside)
 │   ├── .env.example        # configuration template
 │   ├── cogs/
@@ -118,6 +132,9 @@ Install Deno (yt-dlp's JS challenge solver), keep yt-dlp current (`./run.sh --in
 
 **Personality doesn't respond**
 Run `./run.sh --check` — it verifies Ollama is reachable and the model is pulled (`ollama pull llama3.2`). Also confirm the message either mentions the bot or is in a `PERSONALITY_CHANNELS` channel, and that Message Content Intent is enabled.
+
+**The bot isn't acting like Monika**
+`BOT_CHARACTER_PROMPT` is set in `src/.env` and it fully overrides the built-in persona — comment it out (as in `.env.example`) and restart. To change the character for good, edit `MONIKA_PERSONA` in `src/persona.py` instead.
 
 **Spotify links fail**
 Set `SPOTIPY_CLIENT_ID` and `SPOTIPY_CLIENT_SECRET` in `.env` (free tier, no Premium required) — or just paste YouTube links instead.
