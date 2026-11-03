@@ -1,2 +1,2 @@
 # Personal-Discord-Bot
-A personal discord bot with many tools!
+A personal discord bot with many tools! 2
