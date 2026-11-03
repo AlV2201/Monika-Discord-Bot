@@ -1,20 +1,34 @@
-# [voice] extra = PyNaCl + davey (Discord's DAVE/E2EE voice protocol).
-discord.py[voice]
-# PINNED: davey 0.2.0 (2026-11-02) breaking change — process_commit()/
-# process_welcome() no longer install MLS keys unless followed by
-# prepare_transition()/execute_transition(), which discord.py 2.7.1 (March)
-# never calls. With 0.2.0 the handshake completes but keys are never set, so
-# the server can't decrypt the bot's frames: bot "plays" (green glow, valid
-# RTP on the wire) but nobody hears it. 0.1.7 keeps the key-updating
-# semantics discord.py 2.7.1 expects. Revisit when discord.py ships a release
-# that calls the 0.2.x transition API.
+# Personal Discord bot — Python 3.11+ (validated on 3.14).
+# Install: ./run.sh --install   (or: python3 -m venv .venv && .venv/bin/pip install -r src/requirements.txt)
+
+# --- Voice stack: PIN THESE TOGETHER ---------------------------------------
+# discord.py 2.7.1 talks to davey via the 0.1.x API: gateway.py calls
+# process_commit()/process_welcome(), which install the MLS group keys.
+# davey 0.2.0 (released 2026-11-02) moved key installation behind
+# prepare_transition()/execute_transition() — methods discord.py 2.7.1 never
+# calls. With 0.2.0 the DAVE handshake completes but no keys are ever set, so
+# the server cannot decrypt the bot's frames: the bot joins voice, shows the
+# speaking glow, sends well-formed RTP… and nobody hears it.
+# Do NOT upgrade these two independently — bump both together only once
+# discord.py ships support for the 0.2.x transition API.
+discord.py[voice]==2.7.1
 davey==0.1.7
-# [default] pulls in yt-dlp-ejs (JS challenge solver scripts) — required
-# for YouTube format extraction; see https://github.com/yt-dlp/yt-dlp/wiki/EJS
-# NOTE: a JS runtime is also required at runtime (Deno recommended, e.g.
-# `curl -fsSL https://deno.land/install.sh | sh` — must be on PATH when the bot runs).
+# [voice] already requires PyNaCl>=1.5,<1.6; pinned to the validated one.
+PyNaCl==1.5.0
+
+# --- Music ------------------------------------------------------------------
+# [default] pulls in yt-dlp-ejs (YouTube JS-challenge solver scripts), which
+# needs a JS runtime — Deno must be on PATH when the bot runs (run.sh adds
+# ~/.deno/bin automatically). See https://github.com/yt-dlp/yt-dlp/wiki/EJS
+# Deliberately NOT pinned: YouTube changes often, keep yt-dlp current with
+# `pip install -U yt-dlp`.
 yt-dlp[default]
+
+# Spotify metadata (optional — without credentials the bot is YouTube-only).
 spotipy
+
+# --- Personality ------------------------------------------------------------
 ollama
+
+# --- Config -----------------------------------------------------------------
 python-dotenv
-PyNaCl
