@@ -66,4 +66,5 @@ discord-bot/
 * `/previous`: Replays the previously finished track from a stored history stack.
 * `/queue`: Formats and sends an Embed list of upcoming songs.
 * `/shuffle`: Shuffles items in the current queue list.
+* `/remove <index>`: Removes the track at the given 1-based queue position (same numbering as `/queue`).
 * `/loop`: Toggles looping mode (Off / Single Song / Queue).

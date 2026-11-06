@@ -27,6 +27,7 @@ A locally hosted Discord bot with a **built-in Monika (DDLC) personality** power
 | `/skip` / `/next` | Skip the current track |
 | `/previous` | Replay the previous track |
 | `/queue` | Show the queue |
+| `/remove <index>` | Remove a song from the queue by position |
 | `/shuffle` | Shuffle the queue |
 | `/loop [mode]` | Off → Single → Queue (omitting `mode` cycles) |
 | `/forget` | Clear the personality's memory of this conversation |

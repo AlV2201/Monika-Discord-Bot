@@ -608,6 +608,42 @@ class Music(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.guild_only()
+    @app_commands.command(
+        name="remove",
+        description="Remove a song from the queue by its number.",
+    )
+    @app_commands.describe(
+        index="Position as shown in /queue (1 = next up)."
+    )
+    async def remove(self, interaction: discord.Interaction, index: int) -> None:
+        state = self._state(interaction.guild_id)
+        if not state.queue:
+            await interaction.response.send_message(
+                "The queue is empty — there's nothing to remove.", ephemeral=True
+            )
+            return
+        if index < 1 or index > len(state.queue):
+            await interaction.response.send_message(
+                f"Pick a position between **1** and **{len(state.queue)}** "
+                "— see /queue.",
+                ephemeral=True,
+            )
+            return
+
+        removed = state.queue.pop(index - 1)
+        embed = discord.Embed(color=discord.Color.orange(), title="Removed from queue")
+        embed.description = (
+            f"[{removed.title}]({removed.webpage_url}) ({removed.duration_label})"
+        )
+        embed.add_field(name="Position", value=f"#{index}", inline=True)
+        embed.add_field(name="Remaining", value=str(len(state.queue)), inline=True)
+        if removed.requester_name:
+            embed.add_field(
+                name="Requested by", value=removed.requester_name, inline=True
+            )
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.guild_only()
     @app_commands.command(name="shuffle", description="Shuffle the queue.")
     async def shuffle(self, interaction: discord.Interaction) -> None:
         state = self._state(interaction.guild_id)
