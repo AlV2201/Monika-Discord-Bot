@@ -22,6 +22,7 @@ discord-bot/
 │   └── music.py          # Voice connection & playback commands
 └── utils/
     ├── audio_source.py   # yt-dlp & FFmpeg audio stream handler
+    ├── lyrics.py         # LRCLib lyrics lookup (title parsing + match scoring)
     └── spotify_helper.py # Spotify URL parser & metadata extractor
 ```
 
@@ -46,8 +47,9 @@ discord-bot/
 ### 3. Audio Source Engine (`utils/audio_source.py`)
 
 * Uses `yt-dlp` to extract direct audio streams (`format: bestaudio/best`) without saving files to disk.
+* Resolves every stream through `YOUTUBE_PLAYER_CLIENTS` (`visionos` → `android` → yt-dlp's defaults) and Range-probes the signed URL before playback: without a PO token provider some clients hand out URLs that YouTube answers with HTTP 403, and probing drops those candidates instead of letting FFmpeg die on them.
 * Standard `FFmpegPCMAudio` options for stability:
-`-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5`
+`-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5`, plus the headers yt-dlp extracted with (`-user_agent`, Referer, …).
 * Handles single YouTube links, YouTube search queries (`ytsearch:`), and YouTube playlist URLs.
 
 ### 4. Spotify Resolver (`utils/spotify_helper.py`)
@@ -64,6 +66,7 @@ discord-bot/
 * `/pause` / `/resume`: Toggles audio state.
 * `/skip` / `/next`: Stops current track to trigger the next track in queue.
 * `/previous`: Replays the previously finished track from a stored history stack.
+* `/lyrics [title]`: Posts lyrics for the current track (LRCLib, no API key); with `title`, looks up that song instead.
 * `/queue`: Formats and sends an Embed list of upcoming songs.
 * `/shuffle`: Shuffles items in the current queue list.
 * `/remove <index>`: Removes the track at the given 1-based queue position (same numbering as `/queue`).
