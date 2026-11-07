@@ -25,6 +25,7 @@ from utils.audio_source import (
     extract_stream_url,
     extract_tracks,
 )
+from utils.lyrics import LyricsError, LyricsNotFound, fetch_lyrics
 from utils.spotify_helper import SpotifyError, SpotifyHelper, is_spotify_url
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,34 @@ log = logging.getLogger(__name__)
 QUEUE_PAGE_SIZE = 15
 MAX_HISTORY = 100
 SEARCH_CONCURRENCY = 5
+
+# Discord caps an embed description at 4096 chars and a message at 2000;
+# long lyrics spill over into plain follow-up messages.
+LYRICS_EMBED_LIMIT = 3900
+LYRICS_MESSAGE_LIMIT = 1900
+LYRICS_MAX_MESSAGES = 8       # don't drown the channel on huge lyrics
+
+
+def _chunk_text(text: str, limit: int) -> List[str]:
+    """Split lyrics into <=``limit`` pieces, preferring line breaks."""
+    chunks: List[str] = []
+    current = ""
+    for line in text.splitlines():
+        while len(line) > limit:              # pathological single line
+            if current:
+                chunks.append(current)
+                current = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+        candidate = line if not current else f"{current}\n{line}"
+        if len(candidate) > limit:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 class LoopMode(Enum):
@@ -212,7 +241,7 @@ class Music(commands.Cog):
             return
 
         try:
-            stream_url, duration = await extract_stream_url(track.webpage_url)
+            stream = await extract_stream_url(track.webpage_url)
         except ExtractionError as exc:
             log.warning("Skipping unplayable track %r: %s", track.title, exc)
             state.current = None               # drop it, no history entry
@@ -221,14 +250,14 @@ class Music(commands.Cog):
             )
             return
 
-        if duration and not track.duration:
-            track.duration = duration          # fill in flat playlist metadata
+        if stream.duration and not track.duration:
+            track.duration = stream.duration   # fill in flat playlist metadata
 
         state.stop_reason = None
         state.done_event.clear()
         state.current = track
         try:
-            source = create_audio_source(stream_url)
+            source = create_audio_source(stream.url, stream.headers)
             vc.play(source, after=lambda error: self._on_playback_end(state, error))
         except Exception as exc:
             log.exception("Failed to start playback in guild %s", state.guild_id)
@@ -544,6 +573,87 @@ class Music(commands.Cog):
         await interaction.response.send_message(f"⏮ Playing **{previous_track.title}**.")
 
     # ------------------------------------------------------------------
+    # Lyrics
+    # ------------------------------------------------------------------
+    @app_commands.guild_only()
+    @app_commands.command(
+        name="lyrics",
+        description="Show lyrics for the song that's playing.",
+    )
+    @app_commands.describe(title="Song to look up instead of the current track.")
+    async def lyrics(
+        self,
+        interaction: discord.Interaction,
+        title: Optional[str] = None,
+    ) -> None:
+        await interaction.response.defer()
+        state = self._state(interaction.guild_id)
+        track = state.current
+
+        if title is None:
+            if track is None:
+                await interaction.followup.send(
+                    "Nothing is playing right now — give me a song with "
+                    "`/lyrics <title>` instead.",
+                    ephemeral=True,
+                )
+                return
+            lookup, duration = track.title, track.duration
+        else:
+            lookup, duration = title.strip(), None
+            if not lookup:
+                await interaction.followup.send(
+                    "Give me a title to look up, e.g. `/lyrics bad guy`.",
+                    ephemeral=True,
+                )
+                return
+
+        try:
+            found = await fetch_lyrics(lookup, duration=duration)
+        except LyricsNotFound:
+            await interaction.followup.send(
+                f"🙈 I couldn't find lyrics for **{lookup}** — try "
+                "`/lyrics` with just the song title (and artist).",
+                ephemeral=True,
+            )
+            return
+        except LyricsError as exc:
+            await interaction.followup.send(f"❌ {exc}", ephemeral=True)
+            return
+
+        embed = discord.Embed(color=discord.Color.gold())
+        embed.title = f"🎤 {found.track_name or lookup} — {found.artist_name}"[:256]
+        embed.url = found.source_url or (track.webpage_url if track else None)
+        credit = found.artist_name or "Unknown artist"
+        if found.album_name and found.album_name.strip() != credit.strip():
+            credit += f" • {found.album_name}"
+        embed.set_footer(text=f"{credit[:200]} • lyrics via LRCLib")
+
+        if found.instrumental:
+            embed.description = "🎼 This one is instrumental — no lyrics to show."
+            await interaction.followup.send(embed=embed)
+            return
+        if not found.text:
+            await interaction.followup.send(
+                f"🙈 Found **{found.track_name}** but it has no lyrics text "
+                "attached.",
+                ephemeral=True,
+            )
+            return
+
+        chunks = _chunk_text(found.text, LYRICS_EMBED_LIMIT)
+        embed.description = chunks[0]
+        await interaction.followup.send(embed=embed)
+
+        remaining = "\n".join(chunks[1:])
+        if remaining:
+            pieces = _chunk_text(remaining, LYRICS_MESSAGE_LIMIT)
+            for piece in pieces[: LYRICS_MAX_MESSAGES - 1]:
+                await interaction.followup.send(piece)
+            if len(pieces) > LYRICS_MAX_MESSAGES - 1:
+                await interaction.followup.send("…(lyrics truncated)")
+
+    # ------------------------------------------------------------------
     # Queue management commands
     # ------------------------------------------------------------------
     @app_commands.guild_only()
@@ -605,6 +715,42 @@ class Music(commands.Cog):
             )
         else:
             embed.set_footer(text=f"Loop: {state.loop.label}")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.guild_only()
+    @app_commands.command(
+        name="remove",
+        description="Remove a song from the queue by its number.",
+    )
+    @app_commands.describe(
+        index="Position as shown in /queue (1 = next up)."
+    )
+    async def remove(self, interaction: discord.Interaction, index: int) -> None:
+        state = self._state(interaction.guild_id)
+        if not state.queue:
+            await interaction.response.send_message(
+                "The queue is empty — there's nothing to remove.", ephemeral=True
+            )
+            return
+        if index < 1 or index > len(state.queue):
+            await interaction.response.send_message(
+                f"Pick a position between **1** and **{len(state.queue)}** "
+                "— see /queue.",
+                ephemeral=True,
+            )
+            return
+
+        removed = state.queue.pop(index - 1)
+        embed = discord.Embed(color=discord.Color.orange(), title="Removed from queue")
+        embed.description = (
+            f"[{removed.title}]({removed.webpage_url}) ({removed.duration_label})"
+        )
+        embed.add_field(name="Position", value=f"#{index}", inline=True)
+        embed.add_field(name="Remaining", value=str(len(state.queue)), inline=True)
+        if removed.requester_name:
+            embed.add_field(
+                name="Requested by", value=removed.requester_name, inline=True
+            )
         await interaction.response.send_message(embed=embed)
 
     @app_commands.guild_only()

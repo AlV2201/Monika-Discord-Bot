@@ -15,6 +15,7 @@ A locally hosted Discord bot with a **built-in Monika (DDLC) personality** power
 **Music** (`cogs/music.py`)
 - Streams YouTube links, playlists, search queries, and Spotify links (Spotify resolves via the free Web API, then plays from YouTube)
 - Per-guild queue with loop modes (Off / Single / Queue), shuffle, and history
+- `/lyrics` posts the current song's lyrics, fetched from [LRCLib](https://lrclib.net) (free, no API key)
 
 **General** (`cogs/help.py`)
 - `/help` lists every command & feature, grouped by category, with a link to the repository
@@ -26,7 +27,9 @@ A locally hosted Discord bot with a **built-in Monika (DDLC) personality** power
 | `/pause` / `/resume` | Toggle playback |
 | `/skip` / `/next` | Skip the current track |
 | `/previous` | Replay the previous track |
+| `/lyrics [title]` | Lyrics for the current song (or any title you pass) |
 | `/queue` | Show the queue |
+| `/remove <index>` | Remove a song from the queue by position |
 | `/shuffle` | Shuffle the queue |
 | `/loop [mode]` | Off → Single → Queue (omitting `mode` cycles) |
 | `/forget` | Clear the personality's memory of this conversation |
@@ -118,6 +121,7 @@ Personal-Discord-Bot/
 │   │   └── music.py        # voice connection, queue, 11 slash commands
 │   └── utils/
 │       ├── audio_source.py # yt-dlp extraction + FFmpeg streaming
+│       ├── lyrics.py       # LRCLib lyrics lookup (title parsing + scoring)
 │       └── spotify_helper.py # Spotify URL → YouTube search
 └── .venv/                  # created by ./run.sh --install
 ```
@@ -129,6 +133,9 @@ Discord's DAVE end-to-end encryption silently breaks when `davey` 0.2.0 is paire
 
 **YouTube: "Sign in to confirm you're not a bot" or format errors**
 Install Deno (yt-dlp's JS challenge solver), keep yt-dlp current (`./run.sh --install`), and if it persists set `YTDLP_COOKIES_FROM_BROWSER=firefox` or export cookies to a file for `YTDLP_COOKIES_FILE`.
+
+**Some songs fail with `Error opening input ... Server returned 403 Forbidden`**
+YouTube mints stream URLs per player client, and clients that require a GVS PO token (yt-dlp has no provider configured here) hand out URLs that are refused the moment FFmpeg opens them — which is why only *some* tracks 403. `extract_stream_url()` in `src/utils/audio_source.py` now Range-probes each candidate and walks `YOUTUBE_PLAYER_CLIENTS` (`visionos` → `android` → yt-dlp's defaults) until one is accepted, forwarding that client's headers to FFmpeg. Note that cookie settings (`YTDLP_COOKIES_*`) make yt-dlp skip clients that can't carry cookies (`visionos`, `android`, …), so the bot strips those settings when pinning such a client — otherwise the fallback chain silently collapses and *every* track 403s. If it ever happens anyway, install a PO token provider such as [`bgutil-ytdlp-pot-provider`](https://pypi.org/project/bgutil-ytdlp-pot-provider/) so the `web`/`tv` clients work too.
 
 **Personality doesn't respond**
 Run `./run.sh --check` — it verifies Ollama is reachable and the model is pulled (`ollama pull llama3.2`). Also confirm the message either mentions the bot or is in a `PERSONALITY_CHANNELS` channel, and that Message Content Intent is enabled.
